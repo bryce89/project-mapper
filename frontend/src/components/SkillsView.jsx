@@ -241,7 +241,7 @@ export default function SkillsView() {
                           >
                             {skill.name}
                           </span>
-                          <span style={{ fontSize: 10, color: T.muted, fontFamily: T.mono }}>✎</span>
+                          <span style={{ fontSize: 15, color: T.muted, fontFamily: T.mono }}>✎</span>
                         </div>
                       )}
                     </td>
