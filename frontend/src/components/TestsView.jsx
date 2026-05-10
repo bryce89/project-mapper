@@ -102,6 +102,10 @@ export default function TestsView() {
     setError(null);
     try {
       const res = await fetch('/api/tests/run');
+      if (res.status === 403) {
+        setError('Test runner is only available in the local development environment — running tests in production would wipe live data.');
+        return;
+      }
       if (!res.ok) throw new Error(await res.text());
       setResults(await res.json());
     } catch (e) {

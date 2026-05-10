@@ -36,6 +36,9 @@ function normaliseSuite(raw) {
 
 
 router.get('/run', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Test runner is disabled in production to protect live data.' });
+  }
   const start = Date.now();
 
   const [jestRun, vitestRun] = await Promise.all([
