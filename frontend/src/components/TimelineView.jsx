@@ -76,7 +76,7 @@ function AllocationPopup({ popup, onClose, projectColorMap }) {
 
 export default function TimelineView() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState('engineer');
+  const [mode, setMode] = useState('project');
   const [year, setYear] = useState(2026);
   const [assignments, setAssignments] = useState([]);
   const [engineers, setEngineers] = useState([]);
