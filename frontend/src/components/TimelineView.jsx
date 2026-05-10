@@ -331,7 +331,7 @@ export default function TimelineView() {
       </div>
 
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `2px solid ${T.border}`, paddingBottom: 0 }}>
-        {[['skills', 'Project Skills'], ['project', 'By Project'], ['engineer', 'By Engineer']].map(([m, label]) => (
+        {[['skills', 'Project Skills'], ['project', 'By Project (FTE)'], ['engineer', 'By Engineer']].map(([m, label]) => (
           <button key={m} onClick={() => setMode(m)} style={{
             background: 'transparent',
             color: mode === m ? T.accent : T.muted,
