@@ -346,6 +346,39 @@ export default function TimelineView() {
         </div>
       </div>
 
+      {!loading && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+          {(() => {
+            const expandAll = () => {
+              if (mode === 'engineer') setExpandedEngineers(new Set(engineerRows.map(e => e.id)));
+              else if (mode === 'project') setExpandedProjects(new Set(projectRows.map(p => p.id)));
+              else setExpandedSkillProjects(new Set(skillsRows.map(p => p.id)));
+            };
+            const collapseAll = () => {
+              if (mode === 'engineer') setExpandedEngineers(new Set());
+              else if (mode === 'project') setExpandedProjects(new Set());
+              else setExpandedSkillProjects(new Set());
+            };
+            const btnBase = {
+              background: 'transparent',
+              border: `1px solid ${T.border}`,
+              color: T.muted,
+              borderRadius: 5,
+              padding: '4px 10px',
+              fontFamily: T.mono,
+              fontSize: 11,
+              cursor: 'pointer',
+            };
+            return (
+              <>
+                <button style={btnBase} onClick={expandAll}>Expand all</button>
+                <button style={btnBase} onClick={collapseAll}>Collapse all</button>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ color: T.muted, fontFamily: T.mono, fontSize: 13 }}>Loading...</div>
       ) : mode === 'skills' ? (
