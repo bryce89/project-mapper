@@ -27,6 +27,7 @@ function AllocationPopup({ popup, onClose, projectColorMap }) {
 
   if (!popup.visible) return null;
 
+  const isEngineerMode = popup.mode === 'engineer';
   const isOver = popup.total > 100;
 
   return (
@@ -41,7 +42,8 @@ function AllocationPopup({ popup, onClose, projectColorMap }) {
         border: `1px solid ${T.border}`,
         borderRadius: 10,
         boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-        minWidth: 220,
+        minWidth: 240,
+        maxWidth: 320,
         overflow: 'hidden',
       }}
     >
@@ -56,32 +58,29 @@ function AllocationPopup({ popup, onClose, projectColorMap }) {
       }}>
         <div>
           <div style={{ fontFamily: T.mono, fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{popup.month} {popup.year}</div>
-          <div style={{ fontFamily: T.serif, fontSize: 14, fontWeight: 600, color: T.text, marginTop: 2 }}>{popup.engName}</div>
+          <div style={{ fontFamily: T.serif, fontSize: 14, fontWeight: 600, color: T.text, marginTop: 2 }}>{popup.label}</div>
         </div>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>✕</button>
       </div>
 
-      {/* Project rows */}
+      {/* Rows */}
       <div style={{ padding: '8px 0' }}>
         {popup.hits.map((h, i) => (
-          <div key={i} style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '7px 14px',
-            gap: 12,
-          }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 14px', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: projectColorMap[h.project_id], flexShrink: 0 }} />
+              {isEngineerMode
+                ? <div style={{ width: 8, height: 8, borderRadius: '50%', background: projectColorMap[h.project_id], flexShrink: 0 }} />
+                : <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.blue, flexShrink: 0 }} />
+              }
               <span style={{ fontFamily: T.mono, fontSize: 12, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {h.project_name}
+                {isEngineerMode ? h.project_name : h.engineer_name}
               </span>
             </div>
             <span style={{
               fontFamily: T.mono,
               fontSize: 12,
               fontWeight: 600,
-              color: projectColorMap[h.project_id],
+              color: isEngineerMode ? projectColorMap[h.project_id] : T.blue,
               flexShrink: 0,
             }}>
               {h.allocation_pct}%
@@ -90,7 +89,7 @@ function AllocationPopup({ popup, onClose, projectColorMap }) {
         ))}
       </div>
 
-      {/* Total */}
+      {/* Footer */}
       <div style={{
         padding: '8px 14px',
         borderTop: `1px solid ${T.border}`,
@@ -99,15 +98,19 @@ function AllocationPopup({ popup, onClose, projectColorMap }) {
         alignItems: 'center',
         background: T.bg,
       }}>
-        <span style={{ fontFamily: T.mono, fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total</span>
-        <span style={{
-          fontFamily: T.mono,
-          fontSize: 13,
-          fontWeight: 700,
-          color: isOver ? T.red : T.accent,
-        }}>
-          {popup.total}% {isOver && '⚠ over'}
-        </span>
+        {isEngineerMode ? (
+          <>
+            <span style={{ fontFamily: T.mono, fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total</span>
+            <span style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 700, color: isOver ? T.red : T.accent }}>
+              {popup.total}% {isOver && '⚠ over'}
+            </span>
+          </>
+        ) : (
+          <>
+            <span style={{ fontFamily: T.mono, fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Engineers</span>
+            <span style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 700, color: T.blue }}>{popup.hits.length}</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -121,7 +124,7 @@ export default function TimelineView() {
   const [engineers, setEngineers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, hits: [], total: 0, engName: '', month: '', year: 2026 });
+  const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, hits: [], total: 0, label: '', month: '', year: 2026, mode: 'engineer' });
 
   useEffect(() => {
     setLoading(true);
@@ -191,12 +194,12 @@ export default function TimelineView() {
     textOverflow: 'ellipsis',
   };
 
-  function handleCellClick(e, monthData, engName, monthIdx) {
+  function openPopup(e, monthData, label, monthIdx, mode) {
     if (!monthData.hits.length) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.min(rect.left, window.innerWidth - 250);
+    const x = Math.min(rect.left, window.innerWidth - 340);
     const y = rect.bottom + 6;
-    setPopup({ visible: true, x, y, hits: monthData.hits, total: monthData.total, engName, month: MONTHS[monthIdx], year });
+    setPopup({ visible: true, x, y, hits: monthData.hits, total: monthData.total, label, month: MONTHS[monthIdx], year, mode });
   }
 
   function renderEngineerCell(monthData, eng, mi) {
@@ -216,7 +219,7 @@ export default function TimelineView() {
       <td
         key={mi}
         style={{ padding: '4px', borderBottom: `1px solid ${T.border}`, minWidth: 52, cursor: 'pointer' }}
-        onClick={(e) => handleCellClick(e, monthData, eng.name, mi)}
+        onClick={(e) => openPopup(e, monthData, eng.name, mi, 'engineer')}
       >
         <div style={{
           background: bg,
@@ -239,7 +242,7 @@ export default function TimelineView() {
     );
   }
 
-  function renderProjectCell(monthData, mi) {
+  function renderProjectCell(monthData, mi, projName) {
     const { hits, total } = monthData;
     if (!hits.length) return (
       <td key={mi} style={{ padding: '6px 4px', borderBottom: `1px solid ${T.border}`, minWidth: 52 }} />
@@ -247,7 +250,11 @@ export default function TimelineView() {
     const intensity = Math.min(total / 300, 1);
     const bg = `rgba(96,165,250,${0.05 + intensity * 0.25})`;
     return (
-      <td key={mi} style={{ padding: '4px', borderBottom: `1px solid ${T.border}`, minWidth: 52 }}>
+      <td
+        key={mi}
+        style={{ padding: '4px', borderBottom: `1px solid ${T.border}`, minWidth: 52, cursor: 'pointer' }}
+        onClick={(e) => openPopup(e, monthData, projName, mi, 'project')}
+      >
         <div style={{
           background: bg,
           border: `1px solid rgba(96,165,250,${0.2 + intensity * 0.3})`,
@@ -257,7 +264,11 @@ export default function TimelineView() {
           fontSize: 10,
           fontFamily: T.mono,
           color: T.blue,
-        }}>
+          transition: 'filter 0.1s',
+        }}
+          onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.9)'}
+          onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+        >
           {hits.length}👤
         </div>
       </td>
@@ -351,7 +362,7 @@ export default function TimelineView() {
                             <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>{proj.name}</span>
                           </div>
                         </td>
-                        {proj.months.map((m, mi) => renderProjectCell(m, mi))}
+                        {proj.months.map((m, mi) => renderProjectCell(m, mi, proj.name))}
                       </tr>
                     ))
                   )
