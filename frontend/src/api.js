@@ -12,6 +12,7 @@ async function req(method, path, body) {
 export const api = {
   getSkills: () => req('GET', '/skills'),
   createSkill: (name) => req('POST', '/skills', { name }),
+  updateSkill: (id, name) => req('PUT', `/skills/${id}`, { name }),
   deleteSkill: (id) => req('DELETE', `/skills/${id}`),
   getEngineers: (p = {}) => req('GET', '/engineers?' + new URLSearchParams(p)),
   getEngineer: (id) => req('GET', `/engineers/${id}`),
