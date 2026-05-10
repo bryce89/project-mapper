@@ -85,6 +85,7 @@ export default function TimelineView() {
   const [loading, setLoading] = useState(true);
   const [expandedProjects, setExpandedProjects] = useState(new Set());
   const [expandedSkillProjects, setExpandedSkillProjects] = useState(new Set());
+  const [expandedEngineers, setExpandedEngineers] = useState(new Set());
   const [popup, setPopup] = useState({ visible: false, x: 0, y: 0, hits: [], total: 0, label: '', month: '', year: 2026 });
 
   useEffect(() => {
@@ -100,6 +101,7 @@ export default function TimelineView() {
       setAllProjects(projs);
       setExpandedProjects(new Set(projs.map(p => p.id)));
       setExpandedSkillProjects(new Set(projs.map(p => p.id)));
+      setExpandedEngineers(new Set(engs.map(e => e.id)));
     }).catch(console.error).finally(() => setLoading(false));
   }, [year]);
 
@@ -119,14 +121,24 @@ export default function TimelineView() {
 
   const engineerRows = useMemo(() => {
     return engineers.map(eng => {
+      const engAssignments = assignments.filter(a => a.engineer_id === eng.id);
       const months = MONTHS.map((_, mi) => {
-        const hits = assignments.filter(a =>
-          a.engineer_id === eng.id && monthOverlap(a.start_date, a.end_date, year, mi)
-        );
+        const hits = engAssignments.filter(a => monthOverlap(a.start_date, a.end_date, year, mi));
         const total = hits.reduce((sum, a) => sum + a.allocation_pct, 0);
         return { hits, total };
       });
-      return { ...eng, months };
+      const projectIds = [...new Set(engAssignments.map(a => a.project_id))];
+      const projectSubRows = projectIds.map(projId => {
+        const projAssignments = engAssignments.filter(a => a.project_id === projId);
+        const projName = projAssignments[0]?.project_name || '';
+        const projMonths = MONTHS.map((_, mi) => {
+          const hits = projAssignments.filter(a => monthOverlap(a.start_date, a.end_date, year, mi));
+          const total = hits.reduce((sum, a) => sum + a.allocation_pct, 0);
+          return { hits, total };
+        });
+        return { project_id: projId, project_name: projName, months: projMonths };
+      });
+      return { ...eng, months, projectSubRows };
     }).filter(eng => eng.months.some(m => m.hits.length > 0));
   }, [engineers, assignments, year]);
 
@@ -474,18 +486,53 @@ export default function TimelineView() {
                   engineerRows.length === 0 ? (
                     <tr><td colSpan={13} style={{ padding: 20, textAlign: 'center', color: T.muted, fontFamily: T.mono, fontSize: 13 }}>No assignments in {year}</td></tr>
                   ) : (
-                    engineerRows.map(eng => (
-                      <tr key={eng.id}>
-                        <td style={{ ...rowLabelStyle, cursor: 'pointer' }}
-                          onClick={() => navigate(`/engineers/${eng.id}`)}
-                          onMouseEnter={e => e.currentTarget.style.color = T.accent}
-                          onMouseLeave={e => e.currentTarget.style.color = T.text}>
-                          <div style={{ fontWeight: 500 }}>{eng.name}</div>
-                          <div style={{ fontSize: 10, color: T.muted, marginTop: 1 }}>{eng.role}</div>
-                        </td>
-                        {eng.months.map((m, mi) => renderEngineerCell(m, eng, mi))}
-                      </tr>
-                    ))
+                    engineerRows.map(eng => {
+                      const isExpanded = expandedEngineers.has(eng.id);
+                      return (
+                        <React.Fragment key={eng.id}>
+                          <tr>
+                            <td style={{ ...rowLabelStyle, cursor: 'pointer' }}
+                              onClick={() => setExpandedEngineers(prev => {
+                                const next = new Set(prev);
+                                next.has(eng.id) ? next.delete(eng.id) : next.add(eng.id);
+                                return next;
+                              })}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 10, color: T.accent, fontWeight: 700, width: 10, flexShrink: 0 }}>
+                                  {isExpanded ? '▼' : '▶'}
+                                </span>
+                                <span
+                                  style={{ fontWeight: 500, color: T.accent, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                  onClick={e => { e.stopPropagation(); navigate(`/engineers/${eng.id}`); }}
+                                >{eng.name}</span>
+                              </div>
+                              <div style={{ fontSize: 10, color: T.muted, marginTop: 1, paddingLeft: 18 }}>{eng.role}</div>
+                            </td>
+                            {eng.months.map((m, mi) => renderEngineerCell(m, eng, mi))}
+                          </tr>
+                          {isExpanded && eng.projectSubRows.map(proj => {
+                            const color = projectColorMap[proj.project_id];
+                            return (
+                              <tr key={`${eng.id}-${proj.project_id}`}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => navigate(`/projects/${proj.project_id}`)}
+                                onMouseEnter={e => e.currentTarget.style.background = T.cardHover}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <td style={{ ...rowLabelStyle, paddingLeft: 36, background: 'inherit' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ width: 1, height: 14, background: color, opacity: 0.4, flexShrink: 0 }} />
+                                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                                    <span style={{ fontSize: 12, color: T.muted }}>{proj.project_name}</span>
+                                  </div>
+                                </td>
+                                {proj.months.map((m, mi) => renderEngineerSubCell(m, mi, color))}
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })
                   )
                 ) : (
                   projectRows.length === 0 ? (
@@ -542,15 +589,13 @@ export default function TimelineView() {
           <div style={{ marginTop: 16, display: 'flex', gap: 20, flexWrap: 'wrap', fontFamily: T.mono, fontSize: 11, color: T.muted }}>
             {mode === 'engineer' ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 24, height: 12, background: `${T.accent}18`, border: `1px solid ${T.accent}44`, borderRadius: 2 }} />
-                  Single project
-                </div>
+                <div>Click an engineer row to expand / collapse</div>
+                <div>Click an engineer name to open their profile</div>
+                <div>Click a project sub-row to open the project</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 24, height: 12, background: 'rgba(248,113,113,0.15)', border: `1px solid ${T.red}`, borderRadius: 2 }} />
                   Over-allocated (&gt;100%)
                 </div>
-                <div>Click any cell to see project breakdown</div>
               </>
             ) : (
               <>
