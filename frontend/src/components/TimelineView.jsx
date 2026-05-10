@@ -138,12 +138,17 @@ export default function TimelineView() {
       const skillSubRows = (proj.skills || []).map(s => {
         const monthCoverage = MONTHS.map((_, mi) => {
           if (!activeMonths[mi]) return null;
-          const assignedEngineers = projAssignments
-            .filter(a => monthOverlap(a.start_date, a.end_date, year, mi))
-            .map(a => engineers.find(e => e.id === a.engineer_id))
-            .filter(Boolean);
-          const covered = assignedEngineers.some(e => (e.skills || []).some(sk => sk.id === s.id));
-          return { covered, engineerCount: assignedEngineers.filter(e => (e.skills || []).some(sk => sk.id === s.id)).length };
+          const monthAssignments = projAssignments.filter(a => monthOverlap(a.start_date, a.end_date, year, mi));
+          const coveredAssignments = monthAssignments.filter(a => {
+            const eng = engineers.find(e => e.id === a.engineer_id);
+            return eng && (eng.skills || []).some(sk => sk.id === s.id);
+          });
+          const covered = coveredAssignments.length > 0;
+          const daysInMonth = new Date(year, mi + 1, 0).getDate();
+          const workingDays = Math.round(daysInMonth * 5 / 7);
+          const totalPct = coveredAssignments.reduce((sum, a) => sum + a.allocation_pct, 0);
+          const allocatedDays = Math.round(totalPct / 100 * workingDays);
+          return { covered, allocatedDays };
         });
         return { ...s, activeMonths, monthCoverage };
       });
@@ -408,7 +413,7 @@ export default function TimelineView() {
                           </td>
                           {skill.monthCoverage.map((coverage, mi) => {
                             if (!coverage) return <td key={mi} style={{ borderBottom: `1px solid ${T.border}`, minWidth: 52, background: T.bg }} />;
-                            const { covered, engineerCount } = coverage;
+                            const { covered, allocatedDays } = coverage;
                             return (
                               <td key={mi} style={{ padding: '4px', borderBottom: `1px solid ${T.border}`, minWidth: 52, background: T.bg }}>
                                 <div style={{
@@ -421,7 +426,7 @@ export default function TimelineView() {
                                   fontFamily: T.mono,
                                   color: covered ? '#16a34a' : T.red,
                                 }}>
-                                  {covered ? `${engineerCount}👤` : '✗'}
+                                  {covered ? `${allocatedDays}d` : '✗'}
                                 </div>
                               </td>
                             );
