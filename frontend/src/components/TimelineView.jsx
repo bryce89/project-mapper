@@ -162,7 +162,8 @@ export default function TimelineView() {
           const allocatedDays = Math.round(totalPct / 100 * workingDays);
           return { covered, allocatedDays };
         });
-        return { ...s, activeMonths, monthCoverage };
+        const totalAllocatedDays = monthCoverage.reduce((sum, c) => sum + (c?.allocatedDays ?? 0), 0);
+        return { ...s, activeMonths, monthCoverage, totalAllocatedDays };
       });
 
       // Project-level gap: any active month with at least one uncovered skill
@@ -389,15 +390,19 @@ export default function TimelineView() {
               <thead>
                 <tr>
                   <th style={{ ...headerCellStyle, textAlign: 'left', padding: '6px 12px', minWidth: 160 }}>Project / Skill</th>
+                  <th style={{ ...headerCellStyle, minWidth: 80, whiteSpace: 'nowrap' }}>Total</th>
                   {MONTHS.map(m => <th key={m} style={headerCellStyle}>{m}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {skillsRows.length === 0 ? (
-                  <tr><td colSpan={13} style={{ padding: 20, textAlign: 'center', color: T.muted, fontFamily: T.mono, fontSize: 13 }}>No projects active in {year}</td></tr>
+                  <tr><td colSpan={14} style={{ padding: 20, textAlign: 'center', color: T.muted, fontFamily: T.mono, fontSize: 13 }}>No projects active in {year}</td></tr>
                 ) : skillsRows.map(proj => {
                   const color = projectColorMap[proj.id];
                   const isExpanded = expandedSkillProjects.has(proj.id);
+                  const projTotalAllocated = proj.skillSubRows.reduce((sum, s) => sum + s.totalAllocatedDays, 0);
+                  const projTotalTarget = proj.skillSubRows.reduce((sum, s) => sum + (s.effort_days ?? 0), 0);
+                  const projMet = projTotalTarget === 0 || projTotalAllocated >= projTotalTarget;
                   return (
                     <React.Fragment key={proj.id}>
                       {/* Project header row */}
@@ -420,6 +425,24 @@ export default function TimelineView() {
                           <div style={{ fontSize: 10, color: T.muted, marginTop: 2, paddingLeft: 26 }}>
                             {proj.skillSubRows.length} skill{proj.skillSubRows.length !== 1 ? 's' : ''}
                           </div>
+                        </td>
+                        {/* Project total column */}
+                        <td style={{ padding: '4px 6px', borderBottom: `1px solid ${T.border}`, background: `${color}08`, textAlign: 'center' }}>
+                          {projTotalTarget > 0 && (
+                            <div style={{
+                              background: projMet ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.15)',
+                              border: `1px solid ${projMet ? '#22c55e' : T.red}44`,
+                              borderRadius: 4,
+                              padding: '3px 5px',
+                              fontFamily: T.mono,
+                              fontSize: 10,
+                              color: projMet ? '#16a34a' : T.red,
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {projTotalAllocated}d / {projTotalTarget}d
+                            </div>
+                          )}
                         </td>
                         {proj.activeMonths.map((active, mi) => {
                           const hasGap = proj.monthHasGap[mi];
@@ -446,39 +469,64 @@ export default function TimelineView() {
                       </tr>
 
                       {/* Skill sub-rows */}
-                      {isExpanded && proj.skillSubRows.map(skill => (
-                        <tr key={`${proj.id}-${skill.id}`}>
-                          <td style={{ ...rowLabelStyle, paddingLeft: 36, background: 'inherit' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <div style={{ width: 1, height: 14, background: color, opacity: 0.4, flexShrink: 0 }} />
-                              <span style={{ fontSize: 12, color: T.muted }}>{skill.name}</span>
-                              {skill.effort_days != null && (
-                                <span style={{ fontSize: 10, color: color, fontFamily: T.mono, marginLeft: 2 }}>{skill.effort_days}d</span>
-                              )}
-                            </div>
-                          </td>
-                          {skill.monthCoverage.map((coverage, mi) => {
-                            if (!coverage) return <td key={mi} style={{ borderBottom: `1px solid ${T.border}`, minWidth: 52, background: T.bg }} />;
-                            const { covered, allocatedDays } = coverage;
-                            return (
-                              <td key={mi} style={{ padding: '4px', borderBottom: `1px solid ${T.border}`, minWidth: 52, background: T.bg }}>
-                                <div style={{
-                                  background: covered ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.15)',
-                                  border: `1px solid ${covered ? '#22c55e' : T.red}44`,
-                                  borderRadius: 4,
-                                  padding: '3px 4px',
-                                  textAlign: 'center',
-                                  fontSize: 10,
-                                  fontFamily: T.mono,
-                                  color: covered ? '#16a34a' : T.red,
-                                }}>
-                                  {covered ? `${allocatedDays}d` : '✗'}
-                                </div>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
+                      {isExpanded && proj.skillSubRows.map(skill => {
+                        const hastarget = skill.effort_days != null;
+                        const met = hastarget && skill.totalAllocatedDays >= skill.effort_days;
+                        const partial = hastarget && skill.totalAllocatedDays > 0 && skill.totalAllocatedDays < skill.effort_days;
+                        const none = hastarget && skill.totalAllocatedDays === 0;
+                        const totalColor = met ? '#16a34a' : partial ? '#d97706' : none ? T.red : T.muted;
+                        const totalBg = met ? 'rgba(34,197,94,0.12)' : partial ? 'rgba(217,119,6,0.1)' : none ? 'rgba(248,113,113,0.15)' : 'transparent';
+                        const totalBorder = met ? '#22c55e' : partial ? '#d97706' : none ? T.red : T.border;
+                        return (
+                          <tr key={`${proj.id}-${skill.id}`}>
+                            <td style={{ ...rowLabelStyle, paddingLeft: 36, background: 'inherit' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ width: 1, height: 14, background: color, opacity: 0.4, flexShrink: 0 }} />
+                                <span style={{ fontSize: 12, color: T.muted }}>{skill.name}</span>
+                              </div>
+                            </td>
+                            {/* Skill total column */}
+                            <td style={{ padding: '4px 6px', borderBottom: `1px solid ${T.border}`, background: T.bg, textAlign: 'center' }}>
+                              <div style={{
+                                background: totalBg,
+                                border: `1px solid ${totalBorder}44`,
+                                borderRadius: 4,
+                                padding: '3px 5px',
+                                display: 'inline-block',
+                                fontFamily: T.mono,
+                                fontSize: 10,
+                                color: totalColor,
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                              }}>
+                                {hastarget
+                                  ? `${skill.totalAllocatedDays}d / ${skill.effort_days}d`
+                                  : `${skill.totalAllocatedDays}d`}
+                              </div>
+                            </td>
+                            {skill.monthCoverage.map((coverage, mi) => {
+                              if (!coverage) return <td key={mi} style={{ borderBottom: `1px solid ${T.border}`, minWidth: 52, background: T.bg }} />;
+                              const { covered, allocatedDays } = coverage;
+                              return (
+                                <td key={mi} style={{ padding: '4px', borderBottom: `1px solid ${T.border}`, minWidth: 52, background: T.bg }}>
+                                  <div style={{
+                                    background: covered ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.15)',
+                                    border: `1px solid ${covered ? '#22c55e' : T.red}44`,
+                                    borderRadius: 4,
+                                    padding: '3px 4px',
+                                    textAlign: 'center',
+                                    fontSize: 10,
+                                    fontFamily: T.mono,
+                                    color: covered ? '#16a34a' : T.red,
+                                  }}>
+                                    {covered ? `${allocatedDays}d` : '✗'}
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
                     </React.Fragment>
                   );
                 })}
