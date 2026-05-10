@@ -69,7 +69,7 @@ export default function EngineerDetail() {
 
   const btnStyle = (variant = 'default') => ({
     background: variant === 'danger' ? 'rgba(248,113,113,0.1)' : variant === 'primary' ? T.accent : 'transparent',
-    color: variant === 'danger' ? T.red : variant === 'primary' ? '#090e1a' : T.text,
+    color: variant === 'danger' ? T.red : variant === 'primary' ? '#ffffff' : T.text,
     border: `1px solid ${variant === 'danger' ? T.red : variant === 'primary' ? T.accent : T.border}`,
     borderRadius: 6,
     padding: '7px 14px',
