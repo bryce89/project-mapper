@@ -3,9 +3,9 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { T } from '../theme.js';
 
 const links = [
+  { to: '/timeline', label: 'Timeline', icon: '📅' },
   { to: '/engineers', label: 'Engineers', icon: '👥' },
   { to: '/projects', label: 'Projects', icon: '📋' },
-  { to: '/timeline', label: 'Timeline', icon: '📅' },
 ];
 
 export default function Nav({ isMobile, menuOpen, onToggle, onClose }) {
